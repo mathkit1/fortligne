@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FORTNITE OG — Chapter 1 Battle Royale (Omega 3D)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Rajdhani:wght@600;700&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Import Map pour Three.js & GLTFLoader -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: #0b132b;
+      font-family: 'Rajdhani', sans-serif;
+      touch-action: none;
+    }
+    .font-fortnite {
+      font-family: 'Luckiest Guy', cursive;
+      letter-spacing: 1.5px;
+      text-shadow: 2px 3px 0px rgba(0,0,0,0.75);
+    }
+    .og-panel {
+      background: linear-gradient(180deg, rgba(16, 28, 58, 0.88) 0%, rgba(9, 17, 38, 0.92) 100%);
+      border: 2px solid rgba(94, 179, 255, 0.45);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(6px);
+    }
+    .og-btn-yellow {
+      background: linear-gradient(180deg, #ffe600 0%, #f5b800 100%);
+      color: #111827;
+      border: 3px solid #fff380;
+      box-shadow: 0 5px 0 #b37400, 0 10px 20px rgba(0,0,0,0.45);
+      transition: transform 0.08s ease, filter 0.12s ease;
+    }
+    .og-btn-yellow:hover { filter: brightness(1.07); transform: translateY(-1px); }
+    .og-btn-yellow:active { transform: translateY(3px); box-shadow: 0 2px 0 #b37400; }
+
+    .og-btn-blue {
+      background: linear-gradient(180deg, #2596ff 0%, #0d59c9 100%);
+      color: #ffffff;
+      border: 2px solid #7cc4ff;
+      box-shadow: 0 4px 0 #07347a;
+      transition: transform 0.08s ease, filter 0.12s ease;
+    }
+    .og-btn-blue:hover { filter: brightness(1.1); }
+    .og-btn-blue:active { transform: translateY(2px); box-shadow: 0 1px 0 #07347a; }
+
+    .rarity-common { border-color: #9ca3af; background: radial-gradient(circle, rgba(156,163,175,0.35), rgba(31,41,55,0.85)); }
+    .rarity-uncommon { border-color: #22c55e; background: radial-gradient(circle, rgba(34,197,94,0.35), rgba(20,45,30,0.85)); }
+    .rarity-rare { border-color: #3b82f6; background: radial-gradient(circle, rgba(59,130,246,0.4), rgba(23,37,84,0.85)); }
+    .rarity-epic { border-color: #a855f7; background: radial-gradient(circle, rgba(168,85,247,0.45), rgba(59,7,100,0.85)); }
+    .rarity-legendary { border-color: #f59e0b; background: radial-gradient(circle, rgba(245,158,11,0.45), rgba(69,26,3,0.85)); }
+
+    @keyframes dmgFloat {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.8); }
+      20% { transform: translate(-50%, -14px) scale(1.15); }
+      100% { opacity: 0; transform: translate(-50%, -48px) scale(0.95); }
+    }
+    .dmg-popup {
+      position: absolute;
+      pointer-events: none;
+      font-family: 'Luckiest Guy', cursive;
+      text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
+      animation: dmgFloat 0.85s ease-out forwards;
+      z-index: 40;
+    }
+
+    /* Réticule dynamique */
+    #crosshair {
+      position: fixed; top: 50%; left: 50%;
+      width: 44px; height: 44px;
+      transform: translate(-50%, -50%);
+      pointer-events: none; z-index: 25;
+    }
+    .ch-tick {
+      position: absolute; background: rgba(255,255,255,0.92);
+      box-shadow: 0 0 3px rgba(0,0,0,0.9);
+    }
+
+    /* Joystick & boutons tactiles */
+    .touch-btn {
+      background: rgba(15, 23, 42, 0.65);
+      border: 2px solid rgba(125, 211, 252, 0.6);
+      backdrop-filter: blur(4px);
+      border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 800;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+    }
+    .touch-btn:active {
+      background: rgba(56, 189, 248, 0.55);
+      transform: scale(0.93);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Canvas WebGL Three.js -->
+  <canvas id="gameCanvas" class="fixed inset-0 w-full h-full block"></canvas>
+
+  <!-- Calque popups dégâts & notifications -->
+  <div id="floatingLayer" class="fixed inset-0 pointer-events-none overflow-hidden z-30"></div>
+
+  <!-- =========================================================
+       ÉCRAN LOBBY (CHAPITRE 1 OG)
+  ========================================================= -->
+  <div id="lobbyScreen" class="fixed inset-0 z-40 flex flex-col justify-between p-4 sm:p-6 pointer-events-none">
+    <!-- Barre supérieure Lobby -->
+    <div class="flex flex-wrap items-center justify-between gap-3 pointer-events-auto">
+      <div class="flex items-center gap-3">
+        <div class="og-panel px-4 py-2 rounded-xl flex items-center gap-3">
+          <span class="bg-sky-500 text-slate-950 font-black px-2 py-0.5 rounded text-xs tracking-wider">CHAPITRE 1</span>
+          <h1 class="font-fortnite text-2xl sm:text-3xl text-white tracking-wider">FORTNITE <span class="text-yellow-400">OG</span></h1>
+        </div>
+        <div id="modelStatusBadge" class="og-panel px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-sky-200 flex items-center gap-2">
+          <span id="modelStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="modelStatusText">Chargement Omega .glb...</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Bouton charger manuellement un .glb -->
+        <label class="og-btn-blue px-3 py-2 rounded-xl text-xs sm:text-sm font-bold cursor-pointer flex items-center gap-1.5" title="Charger un modèle GLB personnalisé">
+          <span>📂 GLB</span>
+          <input id="glbFileInput" type="file" accept=".glb,.gltf" class="hidden" />
+        </label>
+        <button id="openSettingsLobbyBtn" class="og-btn-blue px-3 py-2 rounded-xl text-xs sm:text-sm font-bold">
+          ⚙️ PARAMÈTRES
+        </button>
+      </div>
+    </div>
+
+    <!-- Centre Lobby : Infos Squelette & Emote -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 my-auto">
+      <div class="og-panel p-4 rounded-2xl max-w-xs pointer-events-auto">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-extrabold uppercase tracking-widest text-red-400">PALIER 100 • LÉGENDAIRE</span>
+          <span id="boneCountBadge" class="text-xs bg-slate-800 text-sky-300 px-2 py-0.5 rounded font-bold">105 OS</span>
+        </div>
+        <div class="font-fortnite text-2xl text-white">OMEGA (ARMURE COMPLÈTE)</div>
+        <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+          Moteur d'animation squelettique procédural 60 FPS actif : course, saut, visée, recul d'arme, pioche et construction.
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button id="lobbyEmoteBtn" class="og-btn-blue px-3 py-1.5 rounded-lg text-xs font-bold">
+            💃 Danse Lobby (Scene)
+          </button>
+          <button id="lobbyPoseTestBtn" class="og-btn-blue px-3 py-1.5 rounded-lg text-xs font-bold">
+            🔫 Tester Pose Arme
+          </button>
+        </div>
+      </div>
+
+      <!-- Panneau Lancement Partie -->
+      <div class="og-panel p-4 sm:p-5 rounded-2xl w-full sm:w-80 pointer-events-auto flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-sky-500/30 pb-2">
+          <div>
+            <div class="text-xs text-sky-300 font-bold uppercase">MODE DE JEU</div>
+            <div class="text-lg font-extrabold text-white">SOLO — BATTLE ROYALE</div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-black">
+            ÎLE OG
+          </span>
+        </div>
+        <div class="text-xs text-slate-300 space-y-1">
+          <div>• <b class="text-white">PC :</b> ZQSD/WASD, Espace, Shift, Clic G/D, R, Q (Construire), 1-5, B (Danse)</div>
+          <div>• <b class="text-white">Mobile :</b> Joystick tactile + boutons auto-activés</div>
+        </div>
+        <button id="playBtn" class="og-btn-yellow w-full py-3.5 rounded-xl font-fortnite text-2xl sm:text-3xl tracking-wider cursor-pointer">
+          JOUER !
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       HUD EN JEU (FORTNITE OG)
+  ========================================================= -->
+  <div id="gameHud" class="fixed inset-0 z-20 pointer-events-none hidden">
+    <!-- Réticule -->
+    <div id="crosshair">
+      <div id="chTop" class="ch-tick w-0.5 h-2.5 left-1/2 -translate-x-1/2 top-1"></div>
+      <div id="chBottom" class="ch-tick w-0.5 h-2.5 left-1/2 -translate-x-1/2 bottom-1"></div>
+      <div id="chLeft" class="ch-tick h-0.5 w-2.5 top-1/2 -translate-y-1/2 left-1"></div>
+      <div id="chRight" class="ch-tick h-0.5 w-2.5 top-1/2 -translate-y-1/2 right-1"></div>
+      <div id="chDot" class="w-1 h-1 rounded-full bg-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+      <!-- Hitmarker X -->
+      <div id="hitmarker" class="hidden absolute inset-0 flex items-center justify-center">
+        <div class="w-6 h-0.5 bg-red-500 rotate-45 absolute"></div>
+        <div class="w-6 h-0.5 bg-red-500 -rotate-45 absolute"></div>
+      </div>
+    </div>
+
+    <!-- HAUT GAUCHE : Escouade & FPS -->
+    <div class="absolute top-3 left-3 flex flex-col gap-2">
+      <div class="og-panel px-3 py-2 rounded-xl flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-red-600 to-slate-900 border border-red-400 flex items-center justify-center font-fortnite text-white text-lg">
+          Ω
+        </div>
+        <div>
+          <div class="text-xs font-black text-white tracking-wide flex items-center gap-2">
+            <span>OMEGA_OG</span>
+            <span id="animStateDebug" class="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/30 text-sky-200 font-mono">IDLE</span>
+          </div>
+          <div class="w-32 h-2 bg-slate-900 rounded-full overflow-hidden mt-1 border border-slate-700">
+            <div id="miniHpBar" class="h-full bg-emerald-400 transition-all duration-150" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+      <div id="fpsCounter" class="hidden og-panel px-2.5 py-1 rounded-lg text-xs font-mono text-emerald-300 w-fit">
+        60 FPS
+      </div>
+    </div>
+
+    <!-- HAUT DROITE : Minimap, Tempête, Survivants, Élims & Bouton Paramètres -->
+    <div class="absolute top-3 right-3 flex flex-col items-end gap-2">
+      <div class="flex items-start gap-2">
+        <button id="toggleTouchHudBtn" class="og-panel pointer-events-auto px-2.5 py-2 rounded-xl text-xs font-extrabold text-sky-300 hover:border-yellow-400 transition" title="Afficher/Masquer les boutons tactiles">
+          📱 TACTILE
+        </button>
+        <button id="openSettingsGameBtn" class="og-panel pointer-events-auto p-2.5 rounded-xl text-white hover:border-yellow-400 transition">
+          ⚙️
+        </button>
+        <div class="og-panel p-1.5 rounded-xl">
+          <canvas id="minimapCanvas" width="136" height="136" class="rounded-lg block bg-slate-950"></canvas>
+        </div>
+      </div>
+      <div class="og-panel px-3 py-1.5 rounded-xl flex items-center gap-4 text-sm font-extrabold text-white">
+        <div class="flex items-center gap-1.5 text-purple-300" title="Temps avant fermeture de la tempête">
+          <span>⏱️</span>
+          <span id="stormTimerText">01:30</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-sky-300" title="Joueurs en vie">
+          <span>👤</span>
+          <span id="aliveCountText">11</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-red-400" title="Éliminations">
+          <span>🎯</span>
+          <span id="elimCountText">0</span>
+        </div>
+      </div>
+      <div id="stormWarningBanner" class="hidden bg-purple-700/90 border border-purple-300 text-white px-3 py-1 rounded-lg text-xs font-black animate-pulse">
+        ⚠️ VOUS ÊTES DANS LA TEMPÊTE !
+      </div>
+    </div>
+
+    <!-- BAS GAUCHE : Bouclier & Santé (Style Chapitre 1) -->
+    <div class="absolute bottom-3 left-3 sm:bottom-5 sm:left-5 w-64 sm:w-80 flex flex-col gap-1.5">
+      <!-- Barre Bouclier -->
+      <div class="relative h-6 bg-slate-950/85 rounded-lg border-2 border-sky-400/60 overflow-hidden shadow-lg">
+        <div id="shieldBarFill" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-150" style="width: 50%"></div>
+        <div class="absolute inset-0 flex items-center justify-between px-2.5 text-xs font-black text-white drop-shadow">
+          <span>🛡️ BOUCLIER</span>
+          <span id="shieldText">50 / 100</span>
+        </div>
+      </div>
+      <!-- Barre Santé -->
+      <div class="relative h-7 bg-slate-950/85 rounded-lg border-2 border-emerald-400/70 overflow-hidden shadow-lg">
+        <div id="hpBarFill" class="h-full bg-gradient-to-r from-emerald-600 to-lime-400 transition-all duration-150" style="width: 100%"></div>
+        <div class="absolute inset-0 flex items-center justify-between px-2.5 text-sm font-black text-white drop-shadow">
+          <span>➕ SANTÉ</span>
+          <span id="hpText">100 / 100</span>
+        </div>
+      </div>
+      <!-- Munitions actuelles -->
+      <div id="ammoIndicator" class="og-panel px-3 py-1 rounded-lg flex items-center justify-between text-xs font-bold text-amber-300">
+        <span id="activeWeaponName">PIOCHE EN CARBURE</span>
+        <span id="ammoCountText">∞</span>
+      </div>
+    </div>
+
+    <!-- BAS DROITE : Ressources + Construction + Inventaire 5 Slots -->
+    <div class="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 flex flex-col items-end gap-2 pointer-events-auto">
+      <!-- Ressources Bois / Pierre / Métal -->
+      <div class="flex items-center gap-1.5">
+        <div id="matWoodBox" class="og-panel px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-xs sm:text-sm font-black text-amber-300 border-yellow-400">
+          <span>🪵</span><span id="woodCountText">150</span>
+        </div>
+        <div id="matStoneBox" class="og-panel px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-xs sm:text-sm font-black text-slate-300">
+          <span>🪨</span><span id="stoneCountText">100</span>
+        </div>
+        <div id="matMetalBox" class="og-panel px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-xs sm:text-sm font-black text-sky-300">
+          <span>🔩</span><span id="metalCountText">50</span>
+        </div>
+      </div>
+
+      <!-- Barre de Construction (Mur, Sol, Escalier, Toit) -->
+      <div class="flex items-center gap-1.5">
+        <button data-build="wall" class="build-slot-btn og-panel w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center text-white hover:border-sky-300 transition">
+          <span class="text-base">🧱</span>
+          <span class="text-[9px] font-bold">MUR</span>
+        </button>
+        <button data-build="floor" class="build-slot-btn og-panel w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center text-white hover:border-sky-300 transition">
+          <span class="text-base">⬜</span>
+          <span class="text-[9px] font-bold">SOL</span>
+        </button>
+        <button data-build="ramp" class="build-slot-btn og-panel w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center text-white hover:border-sky-300 transition">
+          <span class="text-base">📐</span>
+          <span class="text-[9px] font-bold">ESC</span>
+        </button>
+        <button data-build="roof" class="build-slot-btn og-panel w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center text-white hover:border-sky-300 transition">
+          <span class="text-base">⛺</span>
+          <span class="text-[9px] font-bold">TOIT</span>
+        </button>
+      </div>
+
+      <!-- Barre d'Inventaire 5 Slots -->
+      <div id="inventoryBar" class="flex items-center gap-1.5">
+        <!-- Généré dynamiquement -->
+      </div>
+    </div>
+
+    <!-- Message interaction (Coffre / Loot au sol) -->
+    <div id="interactPrompt" class="hidden absolute top-[62%] left-1/2 -translate-x-1/2 og-panel px-4 py-1.5 rounded-full text-sm font-extrabold text-yellow-300">
+      [E] Ouvrir le Coffre
+    </div>
+
+    <!-- =========================================================
+         CONTRÔLES TACTILES MOBILES
+    ========================================================= -->
+    <div id="mobileControls" class="hidden fixed inset-0 pointer-events-none z-30">
+      <!-- Zone Joystick Gauche -->
+      <div id="joystickZone" class="absolute bottom-28 left-5 w-32 h-32 rounded-full bg-white/10 border-2 border-white/25 pointer-events-auto flex items-center justify-center">
+        <div id="joystickKnob" class="w-12 h-12 rounded-full bg-sky-400/80 border-2 border-white shadow-lg"></div>
+      </div>
+
+      <!-- Zone Regard Tactile Droite -->
+      <div id="touchLookZone" class="absolute top-16 right-0 w-1/2 h-[55%] pointer-events-auto"></div>
+
+      <!-- Boutons Action Mobile -->
+      <div class="absolute bottom-36 right-4 flex flex-col gap-3 pointer-events-auto">
+        <div class="flex gap-3 justify-end">
+          <button id="mBtnEmote" class="touch-btn w-11 h-11 text-sm">💃</button>
+          <button id="mBtnReload" class="touch-btn w-11 h-11 text-sm">🔄</button>
+          <button id="mBtnBuild" class="touch-btn w-12 h-12 text-xs bg-sky-600/80">🔨</button>
+        </div>
+        <div class="flex gap-3 items-center justify-end">
+          <button id="mBtnAim" class="touch-btn w-12 h-12 text-xs">🎯</button>
+          <button id="mBtnJump" class="touch-btn w-14 h-14 text-sm">⬆️</button>
+          <button id="mBtnShoot" class="touch-btn w-16 h-16 text-base bg-red-600/80 border-red-300">🔥</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       ÉCRAN FIN DE PARTIE (VICTORY ROYALE / ÉLIMINÉ)
+  ========================================================= -->
+  <div id="endScreen" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="og-panel p-6 sm:p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center gap-4">
+      <div id="endBadge" class="px-3 py-1 rounded-full bg-yellow-400 text-slate-950 font-black text-xs tracking-widest">
+        #1 SURVIVANT
+      </div>
+      <h2 id="endTitle" class="font-fortnite text-4xl sm:text-5xl text-yellow-400">
+        VICTOIRE ROYALE !
+      </h2>
+      <p id="endSubtitle" class="text-slate-300 text-sm">
+        Tu as dominé l'île du Chapitre 1 avec Omega !
+      </p>
+      <div class="grid grid-cols-2 gap-3 w-full my-2">
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+          <div class="text-xs text-slate-400 font-bold">ÉLIMINATIONS</div>
+          <div id="endElims" class="font-fortnite text-2xl text-red-400">0</div>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+          <div class="text-xs text-slate-400 font-bold">CLASSEMENT</div>
+          <div id="endRank" class="font-fortnite text-2xl text-sky-400">#1</div>
+        </div>
+      </div>
+      <button id="returnLobbyBtn" class="og-btn-yellow w-full py-3 rounded-xl font-fortnite text-2xl">
+        RETOUR AU SALON
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODALE PARAMÈTRES & CALIBRATION SQUELETTE
+  ========================================================= -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="og-panel p-5 sm:p-6 rounded-2xl max-w-md w-full flex flex-col gap-4 text-white">
+      <div class="flex items-center justify-between border-b border-sky-500/30 pb-2">
+        <h3 class="font-fortnite text-2xl text-yellow-400">PARAMÈTRES & SQUELETTE</h3>
+        <button id="closeSettingsBtn" class="text-slate-300 hover:text-white text-xl font-black px-2">✕</button>
+      </div>
+
+      <!-- Sensibilité -->
+      <div>
+        <div class="flex justify-between text-xs font-bold mb-1">
+          <span>SENSIBILITÉ CAMÉRA</span>
+          <span id="sensValLabel">1.0x</span>
+        </div>
+        <input id="sensSlider" type="range" min="0.2" max="2.5" step="0.1" value="1.0" class="w-full accent-yellow-400" />
+      </div>
+
+      <!-- Qualité Graphique -->
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold">QUALITÉ GRAPHIQUE</span>
+        <select id="gfxSelect" class="bg-slate-900 border border-sky-500/50 rounded-lg px-3 py-1.5 text-xs font-bold">
+          <option value="low">Faible (Mobile Rapide)</option>
+          <option value="medium" selected>Moyen (Équilibré)</option>
+          <option value="high">Élevé (Ombres + Détails)</option>
+        </select>
+      </div>
+
+      <!-- Calibration Axes Squelette 105 Os -->
+      <div class="bg-slate-900/85 p-3 rounded-xl border border-sky-500/30 space-y-2">
+        <div class="text-xs font-black text-sky-300">🦴 CALIBRATION AXES SQUELETTE (GLB)</div>
+        <p class="text-[11px] text-slate-400">
+          Ajuste l'orientation des articulations si les bras ou jambes de ton modèle plient sur un axe inversé :
+        </p>
+        <select id="boneAxisMode" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-yellow-300">
+          <option value="unreal_std" selected>Standard Unreal / Fortnite (Z-Forward)</option>
+          <option value="invert_pitch">Inverser Flexion (Pitch -1)</option>
+          <option value="swap_xz">Permuter Axes X / Z (Blender Raw)</option>
+        </select>
+      </div>
+
+      <!-- Toggles Mobile HUD & FPS -->
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold">AFFICHER CONTRÔLES TACTILES</span>
+        <input id="mobileHudToggle" type="checkbox" class="w-5 h-5 accent-yellow-400" />
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold">COMPTEUR FPS</span>
+        <input id="fpsToggle" type="checkbox" class="w-5 h-5 accent-yellow-400" />
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button id="quitMatchBtn" class="hidden og-btn-blue flex-1 py-2.5 rounded-xl text-xs font-black bg-red-600">
+          QUITTER LA PARTIE
+        </button>
+        <button id="saveSettingsBtn" class="og-btn-yellow flex-1 py-2.5 rounded-xl font-fortnite text-lg">
+          APPLIQUER
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       SCRIPT PRINCIPAL THREE.JS + MOTEUR SQUELETTIQUE + JEU
+  ========================================================= -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    /**
+     * =========================================================================
+     * 1. ARCHITECTURE RÉSEAU PRÊTE POUR MULTIJOUEUR (NetworkManager)
+     * =========================================================================
+     */
+    class NetworkManager {
+      constructor() {
+        this.connected = false;
+        this.playerId = 'local_omega_' + Math.floor(Math.random() * 9999);
+        this.remotePlayers = new Map();
+      }
+      connect(url = null) {
+        // Prêt pour WebSocket / WebRTC futur
+        this.connected = Boolean(url);
+      }
+      broadcastState(state) {
+        if (!this.connected) return;
+        // Envoi position, rotation, état d'animation squelettique et arme active
+      }
+      syncBuilds(buildPiece) {
+        if (!this.connected) return;
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 2. MOTEUR D'ANIMATION SQUELETTIQUE PROCÉDURAL (105 OS FORTNITE / UNREAL)
+     * =========================================================================
+     * Pilote en temps réel : pelvis, spine_01..05, neck_01, head,
+     * clavicle_l/r, upperarm_l/r, lowerarm_l/r, hand_l/r,
+     * thigh_l/r, calf_l/r, foot_l/r.
+     */
+    class ProceduralSkeletonAnimator {
+      constructor() {
+        this.bones = {};
+        this.restQuats = {};
+        this.restPositions = {};
+        this.boneCount = 0;
+        this.hasRig = false;
+
+        // Animation clip intégrée ("Scene") pour Lobby & Emote
+        this.mixer = null;
+        this.sceneClipAction = null;
+        this.useClipAnimation = true;
+
+        // État courant de la machine à états procédurale
+        this.state = 'IDLE'; // IDLE | RUN | SPRINT | JUMP | FALL | PICKAXE | AIM | BUILD | EMOTE
+        this.gaitPhase = 0;
+        this.breathPhase = 0;
+        this.swingTimer = 0;
+        this.recoilAmount = 0;
+        this.aimPitch = 0;
+        this.axisCalibration = 'unreal_std'; // 'unreal_std' | 'invert_pitch' | 'swap_xz'
+
+        // Objets 3D attachés directement aux mains du squelette
+        this.rightHandSocket = new THREE.Group();
+        this.leftHandSocket = new THREE.Group();
+        this.equippedVisual = null;
+        this.blueprintVisual = null;
+
+        // Objets temporaires réutilisables (zéro allocation GC par frame)
+        this._euler = new THREE.Euler();
+        this._deltaQuat = new THREE.Quaternion();
+        this._targetQuat = new THREE.Quaternion();
+      }
+
+      /**
+       * Indexe tous les os du modèle GLB chargé et sauvegarde leur pose de repos (restQuat).
+       */
+      bindModel(rootObject, animations = []) {
+        this.bones = {};
+        this.restQuats = {};
+        this.restPositions = {};
+        let count = 0;
+
+        rootObject.traverse((node) => {
+          if (node.isBone) {
+            count++;
+            // Nettoie les préfixes Sketchfab / Unreal (ex: "pelvis_01" -> "pelvis")
+            const rawName = node.name.toLowerCase();
+            const cleanName = rawName.replace(/[^a-z0-9_]/g, '').replace(/_\d+$/, '');
+            if (!this.bones[cleanName]) {
+              this.bones[cleanName] = node;
+              this.restQuats[cleanName] = node.quaternion.clone();
+              this.restPositions[cleanName] = node.position.clone();
+            }
+            // Conserve aussi le nom complet exact (ex: spine_01, spine_02...)
+            const fullName = rawName.replace(/[^a-z0-9_]/g, '');
+            this.bones[fullName] = node;
+            this.restQuats[fullName] = node.quaternion.clone();
+            this.restPositions[fullName] = node.position.clone();
+          }
+        });
+
+        this.boneCount = count;
+        this.hasRig = count > 0;
+
+        // Attacher les sockets d'armes aux mains droite et gauche si présentes
+        const handR = this.getBone(['hand_r', 'righthand']);
+        if (handR) {
+          this.rightHandSocket.position.set(0, 0.04, 0.02);
+          handR.add(this.rightHandSocket);
+        }
+        const handL = this.getBone(['hand_l', 'lefthand']);
+        if (handL) {
+          this.leftHandSocket.position.set(0, 0.04, 0.02);
+          handL.add(this.leftHandSocket);
+        }
+
+        // Initialiser l'AnimationMixer si le GLB embarque le clip d'origine ("Scene")
+        if (this.mixer) {
+          this.mixer.stopAllAction();
+          this.mixer = null;
+        }
+        this.sceneClipAction = null;
+        if (animations && animations.length > 0) {
+          this.mixer = new THREE.AnimationMixer(rootObject);
+          const clip = animations.find(a => a.name.toLowerCase().includes('scene')) || animations[0];
+          this.sceneClipAction = this.mixer.clipAction(clip);
+          this.sceneClipAction.play();
+          this.useClipAnimation = true;
+        } else {
+          this.useClipAnimation = false;
+        }
+
+        return count;
+      }
+
+      getBoneKey(candidates) {
+        for (const name of candidates) {
+          if (this.bones[name]) return name;
+        }
+        return null;
+      }
+
+      getBone(candidates) {
+        const k = this.getBoneKey(candidates);
+        return k ? this.bones[k] : null;
+      }
+
+      setClipMode(enabled) {
+        if (enabled && this.sceneClipAction) {
+          this.useClipAnimation = true;
+          this.sceneClipAction.reset().play();
+        } else {
+          this.useClipAnimation = false;
+          if (this.sceneClipAction) this.sceneClipAction.stop();
+          this.resetToRestPose();
+        }
+      }
+
+      resetToRestPose() {
+        for (const key in this.bones) {
+          if (this.restQuats[key]) this.bones[key].quaternion.copy(this.restQuats[key]);
+          if (this.restPositions[key]) this.bones[key].position.copy(this.restPositions[key]);
+        }
+      }
+
+      /**
+       * Applique une rotation relative douce par rapport à la pose de repos du squelette
+       */
+      poseBone(candidates, rx, ry, rz, lerpFactor = 0.25) {
+        const key = this.getBoneKey(candidates);
+        if (!key) return;
+        const bone = this.bones[key];
+        const restQ = this.restQuats[key];
+        if (!bone || !restQ) return;
+
+        let ax = rx, ay = ry, az = rz;
+        if (this.axisCalibration === 'invert_pitch') {
+          ax = -rx;
+          az = -rz;
+        } else if (this.axisCalibration === 'swap_xz') {
+          ax = rz;
+          az = rx;
+        }
+
+        this._euler.set(ax, ay, az, 'XYZ');
+        this._deltaQuat.setFromEuler(this._euler);
+        this._targetQuat.copy(restQ).multiply(this._deltaQuat);
+        bone.quaternion.slerp(this._targetQuat, lerpFactor);
+      }
+
+      /**
+       * Attache le visuel 3D de l'arme active ou du plan bleu aux mains
+       */
+      setEquippedVisual(itemType) {
+        while (this.rightHandSocket.children.length > 0) {
+          this.rightHandSocket.remove(this.rightHandSocket.children[0]);
+        }
+        while (this.leftHandSocket.children.length > 0) {
+          this.leftHandSocket.remove(this.leftHandSocket.children[0]);
+        }
+
+        if (!itemType || itemType === 'none') return;
+
+        if (itemType === 'build') {
+          const bp = new THREE.Mesh(
+            new THREE.BoxGeometry(0.24, 0.015, 0.18),
+            new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+          );
+          this.leftHandSocket.add(bp);
+          return;
+        }
+
+        const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.75, roughness: 0.25 });
+        const redAccent = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xdc2626, emissiveIntensity: 0.8 });
+
+        if (itemType === 'pickaxe') {
+          const group = new THREE.Group();
+          const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.85, 8), darkMetal);
+          shaft.position.y = 0.25;
+          const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.05), darkMetal);
+          head.position.y = 0.65;
+          const edge = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.025, 0.055), redAccent);
+          edge.position.y = 0.67;
+          group.add(shaft, head, edge);
+          this.rightHandSocket.add(group);
+        } else {
+          const group = new THREE.Group();
+          const barrelLen = itemType === 'sniper' ? 0.82 : itemType === 'shotgun' ? 0.58 : 0.48;
+          const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, barrelLen), darkMetal);
+          body.position.set(0, 0.04, barrelLen * 0.35);
+          const core = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.03, barrelLen * 0.4), redAccent);
+          core.position.set(0, 0.07, barrelLen * 0.3);
+          group.add(body, core);
+          this.rightHandSocket.add(group);
+        }
+      }
+
+      triggerSwing() {
+        this.swingTimer = 0.34;
+      }
+
+      triggerRecoil(strength = 0.8) {
+        this.recoilAmount = Math.min(1.6, this.recoilAmount + strength);
+      }
+
+      /**
+       * Mise à jour frame par frame (60 FPS) du squelette complet
+       */
+      update(dt, params) {
+        if (!this.hasRig) return;
+
+        if (this.useClipAnimation && this.mixer) {
+          this.mixer.update(dt);
+          return;
+        }
+
+        const {
+          speed = 0,
+          isGrounded = true,
+          isSprinting = false,
+          hasWeapon = false,
+          isAiming = false,
+          isBuilding = false,
+          aimPitch = 0
+        } = params;
+
+        this.breathPhase += dt * 2.4;
+        if (this.swingTimer > 0) this.swingTimer = Math.max(0, this.swingTimer - dt);
+        if (this.recoilAmount > 0) this.recoilAmount = Math.max(0, this.recoilAmount - dt * 6.5);
+
+        // Déterminer l'état courant
+        if (!isGrounded) {
+          this.state = 'JUMP';
+        } else if (this.swingTimer > 0) {
+          this.state = 'PICKAXE';
+        } else if (isBuilding) {
+          this.state = 'BUILD';
+        } else if (speed > 0.35) {
+          this.state = isSprinting ? 'SPRINT' : 'RUN';
+        } else if (isAiming && hasWeapon) {
+          this.state = 'AIM';
+        } else {
+          this.state = 'IDLE';
+        }
+
+        const cycleSpeed = isSprinting ? 13.5 : 10.0;
+        if (speed > 0.35 && isGrounded) {
+          this.gaitPhase += dt * cycleSpeed;
+        } else {
+          this.gaitPhase = 0;
+        }
+
+        const s = Math.sin(this.gaitPhase);
+        const c = Math.cos(this.gaitPhase);
+        const strideAmp = isSprinting ? 0.78 : 0.56;
+        const breath = Math.sin(this.breathPhase) * 0.035;
+
+        // 1. BASSIN & COLONNE VERTÉBRALE (pelvis, spine_01..05, head)
+        const pelvisKey = this.getBoneKey(['pelvis', 'hips']);
+        if (pelvisKey && this.restPositions[pelvisKey]) {
+          const bounce = (speed > 0.35 && isGrounded) ? Math.abs(c) * 3.5 : 0;
+          this.bones[pelvisKey].position.y = this.restPositions[pelvisKey].y + bounce;
+        }
+
+        const torsoLean = isSprinting ? 0.22 : (this.state === 'JUMP' ? 0.16 : 0.04);
+        const torsoTwist = (speed > 0.35 && isGrounded) ? -s * 0.16 : 0;
+        this.poseBone(['pelvis', 'hips'], torsoLean * 0.4, torsoTwist * 0.5, 0, 0.25);
+        this.poseBone(['spine_01', 'spine1', 'spine'], torsoLean * 0.4 + breath, torsoTwist * 0.5, 0, 0.25);
+        this.poseBone(['spine_02', 'spine2'], (hasWeapon ? -aimPitch * 0.45 : 0) + breath, 0, 0, 0.25);
+        this.poseBone(['spine_03', 'spine3'], (hasWeapon ? -aimPitch * 0.45 : 0), 0, 0, 0.25);
+        this.poseBone(['neck_01', 'neck'], -torsoLean * 0.5, 0, 0, 0.25);
+        this.poseBone(['head'], hasWeapon ? -aimPitch * 0.25 : 0, 0, 0, 0.25);
+
+        // 2. JAMBES (thigh_l/r, calf_l/r, foot_l/r) - Axes Unreal Engine (Z = flexion avant/arrière)
+        if (!isGrounded) {
+          this.poseBone(['thigh_l', 'upleg_l'], 0, 0, 0.65, 0.22);
+          this.poseBone(['calf_l', 'leg_l'], 0, 0, -1.05, 0.22);
+          this.poseBone(['foot_l'], 0, 0, 0.35, 0.22);
+
+          this.poseBone(['thigh_r', 'upleg_r'], 0, 0, 0.35, 0.22);
+          this.poseBone(['calf_r', 'leg_r'], 0, 0, -0.75, 0.22);
+          this.poseBone(['foot_r'], 0, 0, 0.25, 0.22);
+        } else if (speed > 0.35) {
+          const thighL = s * strideAmp;
+          const thighR = -s * strideAmp;
+          const calfL = Math.max(0.08, -c * strideAmp * 1.25 + 0.35);
+          const calfR = Math.max(0.08, c * strideAmp * 1.25 + 0.35);
+
+          this.poseBone(['thigh_l', 'upleg_l'], 0, 0, thighL, 0.3);
+          this.poseBone(['calf_l', 'leg_l'], 0, 0, -calfL, 0.3);
+          this.poseBone(['foot_l'], 0, 0, thighL * 0.35 + calfL * 0.25, 0.3);
+
+          this.poseBone(['thigh_r', 'upleg_r'], 0, 0, thighR, 0.3);
+          this.poseBone(['calf_r', 'leg_r'], 0, 0, -calfR, 0.3);
+          this.poseBone(['foot_r'], 0, 0, thighR * 0.35 + calfR * 0.25, 0.3);
+        } else {
+          this.poseBone(['thigh_l', 'upleg_l'], 0, 0, 0.03, 0.2);
+          this.poseBone(['calf_l', 'leg_l'], 0, 0, -0.06, 0.2);
+          this.poseBone(['foot_l'], 0, 0, 0.03, 0.2);
+
+          this.poseBone(['thigh_r', 'upleg_r'], 0, 0, -0.03, 0.2);
+          this.poseBone(['calf_r', 'leg_r'], 0, 0, -0.06, 0.2);
+          this.poseBone(['foot_r'], 0, 0, 0.03, 0.2);
+        }
+
+        // 3. BRAS & ÉPAULES (clavicle_l/r, upperarm_l/r, lowerarm_l/r, hand_l/r)
+        if (this.swingTimer > 0) {
+          const t = 1 - (this.swingTimer / 0.34);
+          const swingArc = Math.sin(t * Math.PI);
+          this.poseBone(['spine_02', 'spine2'], 0.25 * swingArc, -0.45 * swingArc, 0, 0.45);
+          this.poseBone(['upperarm_r', 'arm_r'], 0.35, -0.4, -1.35 + swingArc * 1.85, 0.45);
+          this.poseBone(['lowerarm_r', 'forearm_r'], 0, 0.55, 0, 0.45);
+          this.poseBone(['upperarm_l', 'arm_l'], -0.35, 0.4, 1.15 - swingArc * 1.45, 0.45);
+          this.poseBone(['lowerarm_l', 'forearm_l'], 0, -0.65, 0, 0.45);
+        } else if (isBuilding) {
+          this.poseBone(['upperarm_l', 'arm_l'], -0.25, 0.45, 0.85, 0.25);
+          this.poseBone(['lowerarm_l', 'forearm_l'], 0, -1.1, 0, 0.25);
+          this.poseBone(['upperarm_r', 'arm_r'], 0.35, -0.35, -0.65, 0.25);
+          this.poseBone(['lowerarm_r', 'forearm_r'], 0, 0.95 + Math.sin(this.breathPhase * 3) * 0.15, 0, 0.25);
+        } else if (hasWeapon) {
+          const recoilKick = this.recoilAmount * 0.28;
+          this.poseBone(['upperarm_r', 'arm_r'], 0.22, -0.35, -1.05 - recoilKick, 0.32);
+          this.poseBone(['lowerarm_r', 'forearm_r'], 0, 0.65 - recoilKick * 0.5, 0, 0.32);
+
+          this.poseBone(['upperarm_l', 'arm_l'], -0.28, 0.65, 0.95 + recoilKick * 0.7, 0.32);
+          this.poseBone(['lowerarm_l', 'forearm_l'], 0, -1.15, 0, 0.32);
+        } else {
+          // Bras abaissés le long du corps + balancement naturel en course
+          const armSwing = (speed > 0.35 && isGrounded) ? s * strideAmp * 0.85 : breath * 0.7;
+          const elbowBend = (speed > 0.35 && isGrounded) ? 0.55 : 0.22;
+
+          this.poseBone(['upperarm_l', 'arm_l'], -0.95 - breath * 0.2, 0.15, armSwing, 0.25);
+          this.poseBone(['lowerarm_l', 'forearm_l'], 0, -elbowBend, 0, 0.25);
+
+          this.poseBone(['upperarm_r', 'arm_r'], 0.95 + breath * 0.2, -0.15, armSwing, 0.25);
+          this.poseBone(['lowerarm_r', 'forearm_r'], 0, elbowBend, 0, 0.25);
+        }
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 3. SYNTHÉTISEUR AUDIO WEB AUDIO API (Zéro URL externe)
+     * =========================================================================
+     */
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      }
+      playTone(freq, type = 'sine', duration = 0.12, vol = 0.18, slideTo = null) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        if (slideTo) {
+          osc.frequency.exponentialRampToValueAtTime(slideTo, this.ctx.currentTime + duration);
+        }
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+      shoot(weaponType) {
+        if (weaponType === 'shotgun') {
+          this.playTone(130, 'sawtooth', 0.22, 0.28, 38);
+          this.playTone(90, 'square', 0.18, 0.22, 30);
+        } else if (weaponType === 'sniper') {
+          this.playTone(420, 'sawtooth', 0.35, 0.3, 55);
+        } else {
+          this.playTone(260, 'square', 0.09, 0.16, 75);
+        }
+      }
+      hitmarker(crit = false) {
+        this.playTone(crit ? 1450 : 980, 'triangle', 0.07, 0.22, crit ? 1900 : 1200);
+      }
+      build() {
+        this.playTone(320, 'triangle', 0.11, 0.2, 540);
+      }
+      harvest(weakPoint = false) {
+        this.playTone(weakPoint ? 760 : 210, 'sine', 0.12, 0.22, weakPoint ? 1120 : 140);
+      }
+      chest() {
+        this.playTone(523, 'sine', 0.15, 0.18, 659);
+        setTimeout(() => this.playTone(784, 'sine', 0.25, 0.2, 1046), 120);
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 4. INITIALISATION SCÈNE THREE.JS, ÎLE OG & CHARGEMENT OMEGA .GLB
+     * =========================================================================
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x5eb5ff);
+    scene.fog = new THREE.FogExp2(0x7cc8ff, 0.0022);
+
+    const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 650);
+
+    // Lumières Chapitre 1 (Soleil chaud + ciel bleu vif)
+    const hemiLight = new THREE.HemisphereLight(0xbbe6ff, 0x3f6b2c, 0.85);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff4d6, 1.85);
+    sunLight.position.set(85, 140, 65);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 360;
+    const d = 120;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    scene.add(sunLight);
+
+    const sfx = new SoundFX();
+    const net = new NetworkManager();
+    const skeletonAnim = new ProceduralSkeletonAnimator();
+
+    // État global du jeu
+    const GAME = {
+      mode: 'LOBBY', // 'LOBBY' | 'PLAYING' | 'ENDED'
+      isMobile: /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent) || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || Math.min(window.innerWidth, window.innerHeight) < 820,
+      sensitivity: 1.0,
+      showFps: false,
+      mapRadius: 190,
+      stormRadius: 190,
+      stormTargetRadius: 28,
+      stormTimer: 90,
+      aliveCount: 11,
+      eliminations: 0
+    };
+
+    // Sol de l'île Chapitre 1 & Océan
+    const oceanMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1400, 1400),
+      new THREE.MeshStandardMaterial({ color: 0x0e7490, roughness: 0.25, metalness: 0.1 })
+    );
+    oceanMesh.rotation.x = -Math.PI / 2;
+    oceanMesh.position.y = -0.35;
+    scene.add(oceanMesh);
+
+    const islandMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(GAME.mapRadius, GAME.mapRadius + 8, 1.2, 64),
+      new THREE.MeshStandardMaterial({ color: 0x4b8b3b, roughness: 0.88 })
+    );
+    islandMesh.position.y = -0.6;
+    islandMesh.receiveShadow = true;
+    scene.add(islandMesh);
+
+    // Socle Lobby
+    const lobbyPedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.35, 1.55, 0.18, 32),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.3 })
+    );
+    lobbyPedestal.position.set(0, -0.09, 0);
+    lobbyPedestal.receiveShadow = true;
+    scene.add(lobbyPedestal);
+
+    // Tempête Violette OG
+    const stormGeo = new THREE.CylinderGeometry(GAME.mapRadius, GAME.mapRadius, 120, 64, 1, true);
+    const stormMat = new THREE.MeshBasicMaterial({
+      color: 0x9333ea,
+      transparent: true,
+      opacity: 0.26,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const stormMesh = new THREE.Mesh(stormGeo, stormMat);
+    stormMesh.position.y = 55;
+    scene.add(stormMesh);
+
+    /**
+     * =========================================================================
+     * 5. PERSONNAGE OMEGA (CHARGEMENT GLB + TEXTURES PBR + MODÈLE SECOURS)
+     * =========================================================================
+     */
+    const player = {
+      root: new THREE.Group(),
+      modelContainer: new THREE.Group(),
+      pos: new THREE.Vector3(0, 0, 0),
+      vel: new THREE.Vector3(0, 0, 0),
+      yaw: 0,
+      pitch: 0.12,
+      grounded: true,
+      sprinting: false,
+      aiming: false,
+      buildMode: false,
+      buildType: 'wall',
+      hp: 100,
+      shield: 50,
+      mats: { wood: 150, stone: 100, metal: 50 },
+      activeSlot: 0,
+      slots: [null, null, null, null, null],
+      fireCooldown: 0
+    };
+    player.root.add(player.modelContainer);
+    scene.add(player.root);
+
+    function buildFallbackOmegaModel() {
+      const group = new THREE.Group();
+      const armorMat = new THREE.MeshStandardMaterial({ color: 0x181c24, metalness: 0.65, roughness: 0.3 });
+      const glowMat = new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xdc2626, emissiveIntensity: 1.4 });
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.68, 0.28), armorMat);
+      torso.position.y = 1.18;
+      torso.castShadow = true;
+
+      const chestCore = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.3), glowMat);
+      chestCore.position.y = 1.24;
+
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.34, 0.32), armorMat);
+      head.position.y = 1.72;
+      head.castShadow = true;
+
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, 0.33), glowMat);
+      visor.position.set(0, 1.73, 0.01);
+
+      const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.82, 0.2), armorMat);
+      legL.position.set(-0.14, 0.41, 0);
+      const legR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.82, 0.2), armorMat);
+      legR.position.set(0.14, 0.41, 0);
+
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.72, 0.18), armorMat);
+      armL.position.set(-0.36, 1.15, 0);
+      const armR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.72, 0.18), armorMat);
+      armR.position.set(0.36, 1.15, 0);
+
+      group.add(torso, chestCore, head, visor, legL, legR, armL, armR);
+      return group;
+    }
+
+    function applyCharacterModel(gltfOrGroup, animations = [], sourceLabel = 'Omega Secours') {
+      while (player.modelContainer.children.length > 0) {
+        player.modelContainer.remove(player.modelContainer.children[0]);
+      }
+
+      const modelRoot = gltfOrGroup.scene ? gltfOrGroup.scene : gltfOrGroup;
+
+      // Récupération des textures KHR_materials_pbrSpecularGlossiness si présentes
+      modelRoot.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          child.frustumCulled = false;
+
+          const ext = child.material?.userData?.gltfExtensions?.KHR_materials_pbrSpecularGlossiness;
+          if (ext && gltfOrGroup.parser) {
+            if (ext.diffuseTexture && !child.material.map) {
+              gltfOrGroup.parser.getDependency('texture', ext.diffuseTexture.index).then((tex) => {
+                tex.colorSpace = THREE.SRGBColorSpace;
+                tex.flipY = false;
+                child.material.map = tex;
+                child.material.color.setHex(0xffffff);
+                child.material.needsUpdate = true;
+              }).catch(() => {});
+            }
+          }
+        }
+      });
+
+      // Normalisation stricte de la hauteur à 1.80 m
+      modelRoot.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(modelRoot);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 0.001 && Number.isFinite(maxDim)) {
+        const scale = 1.80 / maxDim;
+        modelRoot.scale.multiplyScalar(scale);
+      }
+
+      modelRoot.updateMatrixWorld(true);
+      const scaledBox = new THREE.Box3().setFromObject(modelRoot);
+      const center = new THREE.Vector3();
+      scaledBox.getCenter(center);
+      modelRoot.position.x -= center.x;
+      modelRoot.position.z -= center.z;
+      modelRoot.position.y -= scaledBox.min.y;
+
+      player.modelContainer.add(modelRoot);
+
+      const bonesFound = skeletonAnim.bindModel(modelRoot, animations);
+      document.getElementById('boneCountBadge').textContent = `${bonesFound} OS`;
+      document.getElementById('modelStatusDot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+      document.getElementById('modelStatusText').textContent = sourceLabel;
+    }
+
+    // Chargement initial (auto sur http/https GitHub Pages, secours sur blob: Preview)
+    applyCharacterModel(buildFallbackOmegaModel(), [], 'Omega Intégré (Prêt GLB)');
+
+    const gltfLoader = new GLTFLoader();
+    if (window.location.protocol.startsWith('http')) {
+      gltfLoader.load(
+        './the-omega-tier-100-skin-fortnite-3d-model.glb',
+        (gltf) => applyCharacterModel(gltf, gltf.animations, 'Omega GLB Chargé ✓'),
+        undefined,
+        () => {
+          document.getElementById('modelStatusDot').className = 'w-2.5 h-2.5 rounded-full bg-sky-400';
+          document.getElementById('modelStatusText').textContent = 'Mode Secours (GLB prêt)';
+        }
+      );
+    }
+
+    document.getElementById('glbFileInput').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        gltfLoader.parse(ev.target.result, '', (gltf) => {
+          applyCharacterModel(gltf, gltf.animations, `${file.name} ✓`);
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    /**
+     * =========================================================================
+     * 6. CATALOGUE D'ARMES & INVENTAIRE FORTNITE OG
+     * =========================================================================
+     */
+    const WEAPON_CATALOG = {
+      pickaxe: { id: 'pickaxe', name: 'Pioche Carbure', icon: '⛏️', rarity: 'rare', dmg: 20, rate: 0.45, range: 3.4, auto: true, magSize: Infinity, ammo: Infinity },
+      ar_blue: { id: 'ar', name: "Fusil d'Assaut", icon: '🔫', rarity: 'rare', dmg: 33, rate: 0.16, range: 140, auto: true, magSize: 30, ammo: 30 },
+      pump_green: { id: 'shotgun', name: 'Fusil à Pompe', icon: '💥', rarity: 'uncommon', dmg: 95, rate: 0.85, range: 26, auto: false, magSize: 5, ammo: 5 },
+      smg_purple: { id: 'smg', name: 'PM Tactique', icon: '⚡', rarity: 'epic', dmg: 21, rate: 0.09, range: 55, auto: true, magSize: 35, ammo: 35 },
+      sniper_gold: { id: 'sniper', name: 'Sniper Lourd', icon: '🎯', rarity: 'legendary', dmg: 116, rate: 1.35, range: 260, auto: false, magSize: 1, ammo: 1 }
+    };
+
+    function cloneWeapon(key) {
+      return { ...WEAPON_CATALOG[key] };
+    }
+
+    function getActiveItem() {
+      return player.slots[player.activeSlot];
+    }
+
+    function selectSlot(index) {
+      if (index < 0 || index > 4) return;
+      player.activeSlot = index;
+      player.buildMode = false;
+      buildPreviewMesh.visible = false;
+      const item = getActiveItem();
+      skeletonAnim.setEquippedVisual(item ? item.id : 'none');
+      updateHud();
+    }
+
+    /**
+     * =========================================================================
+     * 7. CONSTRUCTION SUR GRILLE 3D & PRÉVISUALISATION HOLOGRAPHIQUE
+     * =========================================================================
+     */
+    const GRID_SIZE = 4.0;
+    const playerBuilds = [];
+    const buildPreviewMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.42,
+      side: THREE.DoubleSide
+    });
+    const buildPreviewMesh = new THREE.Mesh(new THREE.BoxGeometry(GRID_SIZE, 3.2, 0.18), buildPreviewMat);
+    buildPreviewMesh.visible = false;
+    scene.add(buildPreviewMesh);
+
+    function getSnappedBuildTransform() {
+      const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+      const target = player.pos.clone().addScaledVector(forward, 3.2);
+      const gx = Math.round(target.x / GRID_SIZE) * GRID_SIZE;
+      const gz = Math.round(target.z / GRID_SIZE) * GRID_SIZE;
+      const gy = Math.max(0, Math.floor((player.pos.y + 0.5) / 3.2) * 3.2);
+
+      const cardinalYaw = Math.round(player.yaw / (Math.PI / 2)) * (Math.PI / 2);
+      const pos = new THREE.Vector3(gx, gy, gz);
+      const rot = new THREE.Euler(0, cardinalYaw, 0);
+
+      if (player.buildType === 'wall') {
+        pos.y += 1.6;
+      } else if (player.buildType === 'floor') {
+        pos.y += 0.08;
+        rot.x = Math.PI / 2;
+      } else if (player.buildType === 'ramp') {
+        pos.y += 1.6;
+        rot.x = -Math.PI / 4.6;
+      } else if (player.buildType === 'roof') {
+        pos.y += 2.4;
+      }
+      return { pos, rot };
+    }
+
+    function updateBuildPreview() {
+      if (!player.buildMode) {
+        buildPreviewMesh.visible = false;
+        return;
+      }
+      buildPreviewMesh.visible = true;
+      const { pos, rot } = getSnappedBuildTransform();
+      buildPreviewMesh.position.copy(pos);
+      buildPreviewMesh.rotation.copy(rot);
+    }
+
+    function placeBuildPiece() {
+      if (player.mats.wood < 10) {
+        showFloatingMessage('Pas assez de bois (10 requis) !', '#f87171');
+        return;
+      }
+      player.mats.wood -= 10;
+      const { pos, rot } = getSnappedBuildTransform();
+
+      let geo;
+      if (player.buildType === 'roof') {
+        geo = new THREE.ConeGeometry(2.85, 1.6, 4);
+        rot.y += Math.PI / 4;
+      } else {
+        geo = new THREE.BoxGeometry(GRID_SIZE, 3.2, 0.18);
+      }
+
+      const mat = new THREE.MeshStandardMaterial({ color: 0xb47b44, roughness: 0.85 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(pos);
+      mesh.rotation.copy(rot);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+
+      const piece = { type: player.buildType, mesh, hp: 150 };
+      playerBuilds.push(piece);
+      net.syncBuilds(piece);
+      sfx.build();
+      updateHud();
+    }
+
+    /**
+     * =========================================================================
+     * 8. ENVIRONNEMENT DE L'ÎLE (ARBRES, ROCHERS, COFFRES, LOOT & BOTS IA)
+     * =========================================================================
+     */
+    const harvestables = [];
+    const chests = [];
+    const groundLoots = [];
+    const bots = [];
+    const bullets = [];
+
+    function populateIsland() {
+      // Nettoyer anciennes entités
+      [...harvestables, ...chests, ...groundLoots, ...bots, ...playerBuilds].forEach((obj) => {
+        if (obj.mesh) scene.remove(obj.mesh);
+      });
+      harvestables.length = 0;
+      chests.length = 0;
+      groundLoots.length = 0;
+      bots.length = 0;
+      playerBuilds.length = 0;
+
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+      const leavesMat = new THREE.MeshStandardMaterial({ color: 0x2d6a32, roughness: 0.8 });
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85 });
+
+      // Arbres & Rochers récoltables
+      for (let i = 0; i < 65; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 14 + Math.random() * (GAME.mapRadius - 24);
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+
+        if (i % 3 === 0) {
+          const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.4 + Math.random() * 0.8, 0), rockMat);
+          rock.position.set(x, 0.9, z);
+          rock.castShadow = true;
+          rock.receiveShadow = true;
+          scene.add(rock);
+          harvestables.push({ mesh: rock, type: 'stone', hp: 120 });
+        } else {
+          const tree = new THREE.Group();
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.48, 3.2, 8), trunkMat);
+          trunk.position.y = 1.6;
+          trunk.castShadow = true;
+          const crown = new THREE.Mesh(new THREE.ConeGeometry(2.2, 4.6, 8), leavesMat);
+          crown.position.y = 4.6;
+          crown.castShadow = true;
+          tree.add(trunk, crown);
+          tree.position.set(x, 0, z);
+          scene.add(tree);
+          harvestables.push({ mesh: tree, type: 'wood', hp: 100 });
+        }
+      }
+
+      // Coffres dorés OG
+      const chestMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.5, metalness: 0.6, roughness: 0.25 });
+      for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2 + 0.2;
+        const radius = 16 + (i % 4) * 32;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.75, 0.75), chestMat);
+        mesh.position.set(x, 0.38, z);
+        mesh.castShadow = true;
+        scene.add(mesh);
+        chests.push({ mesh, x, z, opened: false });
+      }
+
+      // 10 Bots ennemis
+      const botBodyMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.5 });
+      const botHeadMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.4 });
+      for (let i = 0; i < 10; i++) {
+        const angle = (i / 10) * Math.PI * 2;
+        const radius = 32 + Math.random() * 95;
+        const botGroup = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.15, 0.38), botBodyMat);
+        body.position.y = 0.85;
+        body.castShadow = true;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), botHeadMat);
+        head.position.y = 1.65;
+        botGroup.add(body, head);
+        botGroup.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+        scene.add(botGroup);
+
+        bots.push({
+          mesh: botGroup,
+          hp: 100,
+          alive: true,
+          dir: Math.random() * Math.PI * 2,
+          walkPhase: Math.random() * 6,
+          shootTimer: 1 + Math.random() * 2
+        });
+      }
+    }
+
+    function spawnGroundLoot(x, z, weaponKey) {
+      const colorMap = { uncommon: 0x22c55e, rare: 0x3b82f6, epic: 0xa855f7, legendary: 0xf59e0b };
+      const w = WEAPON_CATALOG[weaponKey];
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.25, 0.25),
+        new THREE.MeshStandardMaterial({ color: colorMap[w.rarity] || 0xffffff, emissive: colorMap[w.rarity] || 0x222222, emissiveIntensity: 0.6 })
+      );
+      mesh.position.set(x, 0.45, z);
+      scene.add(mesh);
+      groundLoots.push({ mesh, x, z, weaponKey });
+    }
+
+    function spawnBulletTracer(start, end, color = 0xfef08a) {
+      const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+      const mat = new THREE.LineBasicMaterial({ color });
+      const line = new THREE.Line(geo, mat);
+      scene.add(line);
+      bullets.push({ line, life: 0.09 });
+    }
+
+    /**
+     * =========================================================================
+     * 9. ACTIONS DE COMBAT, RÉCOLTE & INTERACTION
+     * =========================================================================
+     */
+    const raycaster = new THREE.Raycaster();
+
+    function triggerHitmarker(crit = false) {
+      const hm = document.getElementById('hitmarker');
+      hm.classList.remove('hidden');
+      sfx.hitmarker(crit);
+      setTimeout(() => hm.classList.add('hidden'), 110);
+    }
+
+    function showFloatingMessage(text, color = '#fde047') {
+      const el = document.createElement('div');
+      el.className = 'dmg-popup text-lg sm:text-xl';
+      el.style.left = '50%';
+      el.style.top = '42%';
+      el.style.color = color;
+      el.textContent = text;
+      document.getElementById('floatingLayer').appendChild(el);
+      setTimeout(() => el.remove(), 850);
+    }
+
+    function performPrimaryAction() {
+      if (GAME.mode !== 'PLAYING') return;
+      if (player.buildMode) {
+        placeBuildPiece();
+        return;
+      }
+
+      const item = getActiveItem();
+      if (!item || player.fireCooldown > 0) return;
+
+      if (item.id === 'pickaxe') {
+        player.fireCooldown = item.rate;
+        skeletonAnim.triggerSwing();
+        sfx.harvest(false);
+
+        const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+        const reachPos = player.pos.clone().addScaledVector(forward, 2.2);
+
+        for (let i = harvestables.length - 1; i >= 0; i--) {
+          const h = harvestables[i];
+          if (h.mesh.position.distanceTo(reachPos) < 2.8) {
+            const crit = Math.random() < 0.35;
+            const gain = crit ? 24 : 12;
+            player.mats[h.type] += gain;
+            h.hp -= crit ? 50 : 25;
+            sfx.harvest(crit);
+            showFloatingMessage(`+${gain} ${h.type === 'wood' ? '🪵' : '🪨'}`, crit ? '#38bdf8' : '#fde047');
+            if (h.hp <= 0) {
+              scene.remove(h.mesh);
+              harvestables.splice(i, 1);
+            }
+            updateHud();
+            break;
+          }
+        }
+        return;
+      }
+
+      // Tir avec une arme à feu
+      if (item.ammo <= 0) {
+        reloadActiveWeapon();
+        return;
+      }
+
+      item.ammo--;
+      player.fireCooldown = item.rate;
+      skeletonAnim.triggerRecoil(item.id === 'sniper' ? 1.4 : 0.7);
+      sfx.shoot(item.id);
+      updateHud();
+
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const muzzleOrigin = player.pos.clone().add(new THREE.Vector3(0, 1.45, 0));
+      const endPoint = raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, item.range);
+      spawnBulletTracer(muzzleOrigin, endPoint, 0xfef08a);
+
+      // Vérifier impact sur les bots
+      const botMeshes = bots.filter(b => b.alive).map(b => b.mesh);
+      const hits = raycaster.intersectObjects(botMeshes, true);
+      if (hits.length > 0 && hits[0].distance <= item.range) {
+        const hitObj = hits[0].object;
+        const hitBot = bots.find(b => b.alive && (b.mesh === hitObj || b.mesh.children.includes(hitObj)));
+        if (hitBot) {
+          const isHeadshot = hits[0].point.y > 1.42;
+          const finalDmg = Math.round(item.dmg * (isHeadshot ? 1.75 : 1.0));
+          hitBot.hp -= finalDmg;
+          triggerHitmarker(isHeadshot);
+          showFloatingMessage(`${finalDmg}`, isHeadshot ? '#facc15' : '#ffffff');
+
+          if (hitBot.hp <= 0) {
+            hitBot.alive = false;
+            hitBot.mesh.visible = false;
+            GAME.aliveCount = Math.max(1, GAME.aliveCount - 1);
+            GAME.eliminations++;
+            spawnGroundLoot(hitBot.mesh.position.x, hitBot.mesh.position.z, 'ar_blue');
+            updateHud();
+            checkEndCondition();
+          }
+        }
+      }
+    }
+
+    function reloadActiveWeapon() {
+      const item = getActiveItem();
+      if (!item || item.magSize === Infinity || item.ammo === item.magSize) return;
+      item.ammo = item.magSize;
+      sfx.playTone(440, 'triangle', 0.18, 0.15, 660);
+      showFloatingMessage('Rechargé !', '#38bdf8');
+      updateHud();
+    }
+
+    function interactNearby() {
+      if (GAME.mode !== 'PLAYING') return;
+      for (const c of chests) {
+        if (!c.opened && Math.hypot(player.pos.x - c.x, player.pos.z - c.z) < 3.0) {
+          c.opened = true;
+          c.mesh.material = new THREE.MeshStandardMaterial({ color: 0x78350f });
+          sfx.chest();
+          player.shield = Math.min(100, player.shield + 25);
+          player.mats.wood += 30;
+          const pool = ['ar_blue', 'pump_green', 'smg_purple', 'sniper_gold'];
+          const dropKey = pool[Math.floor(Math.random() * pool.length)];
+          spawnGroundLoot(c.x + 0.9, c.z + 0.9, dropKey);
+          showFloatingMessage('+25 Bouclier & Coffre Ouvert !', '#38bdf8');
+          updateHud();
+          return;
+        }
+      }
+
+      for (let i = groundLoots.length - 1; i >= 0; i--) {
+        const l = groundLoots[i];
+        if (Math.hypot(player.pos.x - l.x, player.pos.z - l.z) < 2.6) {
+          const emptyIdx = player.slots.findIndex(s => s === null);
+          const targetIdx = emptyIdx !== -1 ? emptyIdx : (player.activeSlot === 0 ? 1 : player.activeSlot);
+          player.slots[targetIdx] = cloneWeapon(l.weaponKey);
+          scene.remove(l.mesh);
+          groundLoots.splice(i, 1);
+          selectSlot(targetIdx);
+          sfx.playTone(620, 'sine', 0.1, 0.18, 880);
+          return;
+        }
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 10. INTERFACE HUD, MINIMAP & FIN DE PARTIE
+     * =========================================================================
+     */
+    function updateHud() {
+      document.getElementById('hpBarFill').style.width = `${Math.max(0, player.hp)}%`;
+      document.getElementById('miniHpBar').style.width = `${Math.max(0, player.hp)}%`;
+      document.getElementById('hpText').textContent = `${Math.ceil(Math.max(0, player.hp))} / 100`;
+
+      document.getElementById('shieldBarFill').style.width = `${Math.max(0, player.shield)}%`;
+      document.getElementById('shieldText').textContent = `${Math.ceil(Math.max(0, player.shield))} / 100`;
+
+      document.getElementById('woodCountText').textContent = player.mats.wood;
+      document.getElementById('stoneCountText').textContent = player.mats.stone;
+      document.getElementById('metalCountText').textContent = player.mats.metal;
+
+      document.getElementById('aliveCountText').textContent = GAME.aliveCount;
+      document.getElementById('elimCountText').textContent = GAME.eliminations;
+
+      const active = getActiveItem();
+      if (player.buildMode) {
+        document.getElementById('activeWeaponName').textContent = `CONSTRUCTION : ${player.buildType.toUpperCase()}`;
+        document.getElementById('ammoCountText').textContent = `${player.mats.wood} 🪵`;
+      } else if (active) {
+        document.getElementById('activeWeaponName').textContent = active.name.toUpperCase();
+        document.getElementById('ammoCountText').textContent = active.magSize === Infinity ? '∞' : `${active.ammo} / ${active.magSize}`;
+      }
+
+      // Mise à jour des boutons de construction
+      document.querySelectorAll('.build-slot-btn').forEach((btn) => {
+        const isSel = player.buildMode && btn.dataset.build === player.buildType;
+        btn.classList.toggle('border-yellow-400', isSel);
+        btn.classList.toggle('scale-105', isSel);
+      });
+
+      // Rendu des 5 slots d'inventaire
+      const invBar = document.getElementById('inventoryBar');
+      invBar.innerHTML = '';
+      for (let i = 0; i < 5; i++) {
+        const slotItem = player.slots[i];
+        const isSelected = !player.buildMode && player.activeSlot === i;
+        const btn = document.createElement('button');
+        btn.className = `w-12 h-12 sm:w-14 sm:h-14 rounded-xl border-2 flex flex-col items-center justify-center relative transition ${
+          slotItem ? `rarity-${slotItem.rarity}` : 'bg-slate-950/75 border-slate-700'
+        } ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-1' : ''}`;
+        btn.innerHTML = `
+          <span class="absolute top-0.5 left-1.5 text-[9px] font-black text-white/75">${i + 1}</span>
+          <span class="text-lg sm:text-xl">${slotItem ? slotItem.icon : ''}</span>
+          <span class="text-[8px] font-bold text-white truncate max-w-[90%]">${slotItem ? slotItem.name.split(' ')[0] : ''}</span>
+        `;
+        btn.addEventListener('click', () => selectSlot(i));
+        invBar.appendChild(btn);
+      }
+    }
+
+    const minimapCanvas = document.getElementById('minimapCanvas');
+    const minimapCtx = minimapCanvas.getContext('2d');
+
+    function drawMinimap() {
+      const w = minimapCanvas.width;
+      const h = minimapCanvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const scale = (w / 2 - 6) / GAME.mapRadius;
+
+      minimapCtx.clearRect(0, 0, w, h);
+      minimapCtx.fillStyle = '#0c4a6e';
+      minimapCtx.fillRect(0, 0, w, h);
+
+      // Île verte
+      minimapCtx.beginPath();
+      minimapCtx.arc(cx, cy, GAME.mapRadius * scale, 0, Math.PI * 2);
+      minimapCtx.fillStyle = '#3f7d32';
+      minimapCtx.fill();
+
+      // Cercle de tempête
+      minimapCtx.beginPath();
+      minimapCtx.arc(cx, cy, GAME.stormRadius * scale, 0, Math.PI * 2);
+      minimapCtx.strokeStyle = '#c084fc';
+      minimapCtx.lineWidth = 2;
+      minimapCtx.stroke();
+
+      // Flèche Joueur
+      const px = cx + player.pos.x * scale;
+      const pz = cy + player.pos.z * scale;
+      minimapCtx.save();
+      minimapCtx.translate(px, pz);
+      minimapCtx.rotate(-player.yaw);
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(0, -5);
+      minimapCtx.lineTo(4, 4);
+      minimapCtx.lineTo(-4, 4);
+      minimapCtx.closePath();
+      minimapCtx.fillStyle = '#facc15';
+      minimapCtx.fill();
+      minimapCtx.restore();
+    }
+
+    function checkEndCondition() {
+      if (GAME.mode !== 'PLAYING') return;
+      if (player.hp <= 0) {
+        GAME.mode = 'ENDED';
+        document.exitPointerLock?.();
+        document.getElementById('gameHud').classList.add('hidden');
+        document.getElementById('endScreen').classList.remove('hidden');
+        document.getElementById('endBadge').textContent = `#${GAME.aliveCount} ÉLIMINÉ`;
+        document.getElementById('endTitle').textContent = 'TU AS ÉTÉ ÉLIMINÉ';
+        document.getElementById('endTitle').className = 'font-fortnite text-4xl sm:text-5xl text-red-400';
+        document.getElementById('endSubtitle').textContent = 'Retente ta chance sur l’île du Chapitre 1 !';
+        document.getElementById('endElims').textContent = GAME.eliminations;
+        document.getElementById('endRank').textContent = `#${GAME.aliveCount}`;
+      } else if (GAME.aliveCount <= 1) {
+        GAME.mode = 'ENDED';
+        document.exitPointerLock?.();
+        document.getElementById('gameHud').classList.add('hidden');
+        document.getElementById('endScreen').classList.remove('hidden');
+        document.getElementById('endBadge').textContent = '#1 SURVIVANT';
+        document.getElementById('endTitle').textContent = 'VICTOIRE ROYALE !';
+        document.getElementById('endTitle').className = 'font-fortnite text-4xl sm:text-5xl text-yellow-400';
+        document.getElementById('endSubtitle').textContent = "Tu as dominé l'île du Chapitre 1 avec Omega !";
+        document.getElementById('endElims').textContent = GAME.eliminations;
+        document.getElementById('endRank').textContent = '#1';
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 11. FLUX LOBBY <-> PARTIE
+     * =========================================================================
+     */
+    function startMatch() {
+      sfx.init();
+      GAME.mode = 'PLAYING';
+      GAME.stormRadius = GAME.mapRadius;
+      GAME.stormTimer = 90;
+      GAME.aliveCount = 11;
+      GAME.eliminations = 0;
+
+      player.pos.set(0, 0, 0);
+      player.vel.set(0, 0, 0);
+      player.hp = 100;
+      player.shield = 50;
+      player.mats = { wood: 150, stone: 100, metal: 50 };
+      player.slots = [cloneWeapon('pickaxe'), cloneWeapon('ar_blue'), cloneWeapon('pump_green'), null, null];
+
+      lobbyPedestal.visible = false;
+      skeletonAnim.setClipMode(false);
+      selectSlot(0);
+      populateIsland();
+
+      document.getElementById('lobbyScreen').classList.add('hidden');
+      document.getElementById('endScreen').classList.add('hidden');
+      document.getElementById('gameHud').classList.remove('hidden');
+      document.getElementById('quitMatchBtn').classList.remove('hidden');
+      document.getElementById('mobileControls').classList.toggle('hidden', !GAME.isMobile);
+
+      if (!GAME.isMobile) {
+        canvas.requestPointerLock?.();
+      }
+      updateHud();
+    }
+
+    function returnToLobby() {
+      GAME.mode = 'LOBBY';
+      document.exitPointerLock?.();
+      player.pos.set(0, 0, 0);
+      player.root.position.set(0, 0, 0);
+      player.root.rotation.set(0, 0, 0);
+      player.buildMode = false;
+      buildPreviewMesh.visible = false;
+      lobbyPedestal.visible = true;
+      skeletonAnim.setEquippedVisual('none');
+      skeletonAnim.setClipMode(true);
+
+      document.getElementById('gameHud').classList.add('hidden');
+      document.getElementById('endScreen').classList.add('hidden');
+      document.getElementById('settingsModal').classList.add('hidden');
+      document.getElementById('quitMatchBtn').classList.add('hidden');
+      document.getElementById('lobbyScreen').classList.remove('hidden');
+    }
+
+    document.getElementById('playBtn').addEventListener('click', startMatch);
+    document.getElementById('returnLobbyBtn').addEventListener('click', returnToLobby);
+    document.getElementById('quitMatchBtn').addEventListener('click', returnToLobby);
+
+    document.getElementById('lobbyEmoteBtn').addEventListener('click', () => {
+      skeletonAnim.setEquippedVisual('none');
+      skeletonAnim.setClipMode(true);
+    });
+    document.getElementById('lobbyPoseTestBtn').addEventListener('click', () => {
+      skeletonAnim.setClipMode(false);
+      skeletonAnim.setEquippedVisual('ar');
+    });
+
+    /**
+     * =========================================================================
+     * 12. CONTRÔLES CLAVIER / SOURIS PC + JOYSTICK & BOUTONS MOBILES
+     * =========================================================================
+     */
+    const keys = {};
+    let isMouseDown = false;
+    const joystickVec = { x: 0, y: 0 };
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (GAME.mode !== 'PLAYING') return;
+
+      if (e.code === 'Digit1') selectSlot(0);
+      if (e.code === 'Digit2') selectSlot(1);
+      if (e.code === 'Digit3') selectSlot(2);
+      if (e.code === 'Digit4') selectSlot(3);
+      if (e.code === 'Digit5') selectSlot(4);
+      if (e.code === 'KeyR') reloadActiveWeapon();
+      if (e.code === 'KeyE') interactNearby();
+      if (e.code === 'KeyQ' || e.code === 'KeyC') {
+        player.buildMode = !player.buildMode;
+        skeletonAnim.setEquippedVisual(player.buildMode ? 'build' : getActiveItem()?.id);
+        updateHud();
+      }
+      if (e.code === 'F1') { player.buildMode = true; player.buildType = 'wall'; updateHud(); }
+      if (e.code === 'F2') { player.buildMode = true; player.buildType = 'floor'; updateHud(); }
+      if (e.code === 'F3') { player.buildMode = true; player.buildType = 'ramp'; updateHud(); }
+      if (e.code === 'F4') { player.buildMode = true; player.buildType = 'roof'; updateHud(); }
+      if (e.code === 'KeyB') {
+        skeletonAnim.setClipMode(!skeletonAnim.useClipAnimation);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (GAME.mode !== 'PLAYING') return;
+      if (!GAME.isMobile && document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock?.();
+        return;
+      }
+      if (e.button === 0) {
+        isMouseDown = true;
+        performPrimaryAction();
+      } else if (e.button === 2) {
+        player.aiming = true;
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) isMouseDown = false;
+      if (e.button === 2) player.aiming = false;
+    });
+
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    window.addEventListener('mousemove', (e) => {
+      if (GAME.mode === 'PLAYING' && document.pointerLockElement === canvas) {
+        player.yaw -= e.movementX * 0.0024 * GAME.sensitivity;
+        player.pitch = Math.max(-0.65, Math.min(0.75, player.pitch + e.movementY * 0.002 * GAME.sensitivity));
+      }
+    });
+
+    document.querySelectorAll('.build-slot-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        player.buildMode = true;
+        player.buildType = btn.dataset.build;
+        skeletonAnim.setEquippedVisual('build');
+        updateHud();
+      });
+    });
+
+    // Joystick Tactile Gauche
+    const joystickZone = document.getElementById('joystickZone');
+    const joystickKnob = document.getElementById('joystickKnob');
+    let joyTouchId = null;
+
+    joystickZone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      joyTouchId = t.identifier;
+      updateJoystick(t);
+    }, { passive: false });
+
+    joystickZone.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) updateJoystick(t);
+      }
+    }, { passive: false });
+
+    const resetJoystick = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyTouchId) {
+          joyTouchId = null;
+          joystickVec.x = 0;
+          joystickVec.y = 0;
+          joystickKnob.style.transform = 'translate(0px, 0px)';
+        }
+      }
+    };
+    joystickZone.addEventListener('touchend', resetJoystick);
+    joystickZone.addEventListener('touchcancel', resetJoystick);
+
+    function updateJoystick(touch) {
+      const rect = joystickZone.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const maxR = rect.width / 2 - 16;
+      let dx = touch.clientX - cx;
+      let dy = touch.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist > maxR) {
+        dx = (dx / dist) * maxR;
+        dy = (dy / dist) * maxR;
+      }
+      joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+      joystickVec.x = dx / maxR;
+      joystickVec.y = dy / maxR;
+    }
+
+    // Zone Regard Tactile Droite
+    const touchLookZone = document.getElementById('touchLookZone');
+    let lookTouchId = null;
+    let lastLookX = 0;
+    let lastLookY = 0;
+
+    touchLookZone.addEventListener('touchstart', (e) => {
+      const t = e.changedTouches[0];
+      lookTouchId = t.identifier;
+      lastLookX = t.clientX;
+      lastLookY = t.clientY;
+    }, { passive: true });
+
+    touchLookZone.addEventListener('touchmove', (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === lookTouchId) {
+          const dx = t.clientX - lastLookX;
+          const dy = t.clientY - lastLookY;
+          lastLookX = t.clientX;
+          lastLookY = t.clientY;
+          player.yaw -= dx * 0.0065 * GAME.sensitivity;
+          player.pitch = Math.max(-0.65, Math.min(0.75, player.pitch + dy * 0.005 * GAME.sensitivity));
+        }
+      }
+    }, { passive: true });
+
+    touchLookZone.addEventListener('touchend', (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === lookTouchId) lookTouchId = null;
+      }
+    });
+
+    // Boutons d'action Mobile
+    document.getElementById('mBtnShoot').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isMouseDown = true;
+      performPrimaryAction();
+    });
+    document.getElementById('mBtnShoot').addEventListener('touchend', () => { isMouseDown = false; });
+    document.getElementById('mBtnJump').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (player.grounded) { player.vel.y = 8.4; player.grounded = false; }
+    });
+    document.getElementById('mBtnAim').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      player.aiming = !player.aiming;
+    });
+    document.getElementById('mBtnBuild').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      player.buildMode = !player.buildMode;
+      skeletonAnim.setEquippedVisual(player.buildMode ? 'build' : getActiveItem()?.id);
+      updateHud();
+    });
+    document.getElementById('mBtnReload').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      reloadActiveWeapon();
+      interactNearby();
+    });
+    document.getElementById('mBtnEmote').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      skeletonAnim.setClipMode(!skeletonAnim.useClipAnimation);
+    });
+
+    // Paramètres
+    const settingsModal = document.getElementById('settingsModal');
+    document.getElementById('openSettingsLobbyBtn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    document.getElementById('openSettingsGameBtn').addEventListener('click', () => {
+      document.exitPointerLock?.();
+      settingsModal.classList.remove('hidden');
+    });
+    document.getElementById('toggleTouchHudBtn').addEventListener('click', () => {
+      GAME.isMobile = !GAME.isMobile;
+      document.getElementById('mobileHudToggle').checked = GAME.isMobile;
+      document.getElementById('mobileControls').classList.toggle('hidden', !GAME.isMobile);
+      if (GAME.isMobile) document.exitPointerLock?.();
+    });
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+    document.getElementById('sensSlider').addEventListener('input', (e) => {
+      GAME.sensitivity = parseFloat(e.target.value);
+      document.getElementById('sensValLabel').textContent = `${GAME.sensitivity.toFixed(1)}x`;
+    });
+
+    document.getElementById('mobileHudToggle').checked = GAME.isMobile;
+    document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+      GAME.isMobile = document.getElementById('mobileHudToggle').checked;
+      GAME.showFps = document.getElementById('fpsToggle').checked;
+      skeletonAnim.axisCalibration = document.getElementById('boneAxisMode').value;
+
+      const gfx = document.getElementById('gfxSelect').value;
+      renderer.shadowMap.enabled = gfx !== 'low';
+      renderer.setPixelRatio(gfx === 'low' ? 1 : Math.min(window.devicePixelRatio, 2));
+
+      document.getElementById('fpsCounter').classList.toggle('hidden', !GAME.showFps);
+      if (GAME.mode === 'PLAYING') {
+        document.getElementById('mobileControls').classList.toggle('hidden', !GAME.isMobile);
+      }
+      settingsModal.classList.add('hidden');
+    });
+
+    /**
+     * =========================================================================
+     * 13. BOUCLE PRINCIPALE 60 FPS (PHYSIQUE + SQUELETTE + IA + CAMÉRA TPS)
+     * =========================================================================
+     */
+    populateIsland();
+
+    const clock = new THREE.Clock();
+    let fpsFrames = 0;
+    let fpsLastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      // Compteur FPS
+      fpsFrames++;
+      const now = performance.now();
+      if (now - fpsLastTime >= 500) {
+        const fps = Math.round((fpsFrames * 1000) / (now - fpsLastTime));
+        document.getElementById('fpsCounter').textContent = `${fps} FPS`;
+        fpsFrames = 0;
+        fpsLastTime = now;
+      }
+
+      if (GAME.mode === 'LOBBY') {
+        // Caméra de présentation devant le personnage Omega sur son socle
+        camera.position.set(0, 1.35, 3.25);
+        camera.lookAt(0, 1.05, 0);
+        skeletonAnim.update(dt, {
+          speed: 0,
+          isGrounded: true,
+          hasWeapon: !skeletonAnim.useClipAnimation,
+          aimPitch: 0
+        });
+      } else if (GAME.mode === 'PLAYING') {
+        player.fireCooldown = Math.max(0, player.fireCooldown - dt);
+        if (isMouseDown && getActiveItem()?.auto && !player.buildMode) {
+          performPrimaryAction();
+        }
+
+        // Déplacement ZQSD / WASD + Joystick mobile
+        let moveForward = 0;
+        let moveRight = 0;
+        if (keys['KeyW'] || keys['KeyZ'] || keys['ArrowUp']) moveForward += 1;
+        if (keys['KeyS'] || keys['ArrowDown']) moveForward -= 1;
+        if (keys['KeyD'] || keys['ArrowRight']) moveRight += 1;
+        if (keys['KeyA'] || keys['KeyQ'] && false || keys['ArrowLeft']) moveRight -= 1;
+        // Support clavier QWERTY 'A' pour gauche si non utilisé autrement
+        if (keys['KeyA']) moveRight -= 1;
+
+        moveForward -= joystickVec.y;
+        moveRight += joystickVec.x;
+
+        const inputLen = Math.hypot(moveForward, moveRight);
+        if (inputLen > 1) {
+          moveForward /= inputLen;
+          moveRight /= inputLen;
+        }
+
+        player.sprinting = Boolean(keys['ShiftLeft'] || keys['ShiftRight']) && moveForward > 0.2 && !player.aiming;
+        const moveSpeed = player.sprinting ? 10.5 : player.aiming ? 4.4 : 7.2;
+
+        const forwardVec = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+        const rightVec = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+
+        const wishVel = new THREE.Vector3()
+          .addScaledVector(forwardVec, moveForward)
+          .addScaledVector(rightVec, moveRight)
+          .multiplyScalar(moveSpeed);
+
+        player.vel.x = wishVel.x;
+        player.vel.z = wishVel.z;
+
+        // Saut & Gravité
+        if (keys['Space'] && player.grounded) {
+          player.vel.y = 8.4;
+          player.grounded = false;
+        }
+        player.vel.y -= 21.0 * dt;
+
+        player.pos.addScaledVector(player.vel, dt);
+
+        // Collision sol & rampes/sols construits
+        let floorY = 0;
+        for (const b of playerBuilds) {
+          if (b.type === 'floor' || b.type === 'ramp') {
+            if (Math.abs(player.pos.x - b.mesh.position.x) < 2.1 && Math.abs(player.pos.z - b.mesh.position.z) < 2.1) {
+              const topY = b.type === 'floor' ? b.mesh.position.y + 0.15 : b.mesh.position.y + 1.2;
+              if (player.pos.y >= topY - 0.8 && topY > floorY) floorY = topY;
+            }
+          }
+        }
+
+        if (player.pos.y <= floorY) {
+          player.pos.y = floorY;
+          player.vel.y = 0;
+          player.grounded = true;
+        }
+
+        // Limites de l'île
+        const distFromCenter = Math.hypot(player.pos.x, player.pos.z);
+        if (distFromCenter > GAME.mapRadius - 2) {
+          const clampRatio = (GAME.mapRadius - 2) / distFromCenter;
+          player.pos.x *= clampRatio;
+          player.pos.z *= clampRatio;
+        }
+
+        // Synchronisation Transform du personnage 3D
+        player.root.position.copy(player.pos);
+        player.root.rotation.y = player.yaw + Math.PI; // Modèle face à la caméra (dos au joueur)
+
+        // Mise à jour du moteur d'animation squelettique 105 os
+        const horizSpeed = Math.hypot(player.vel.x, player.vel.z);
+        const activeWeapon = getActiveItem();
+        skeletonAnim.update(dt, {
+          speed: horizSpeed,
+          isGrounded: player.grounded,
+          isSprinting: player.sprinting,
+          hasWeapon: !player.buildMode && activeWeapon && activeWeapon.id !== 'pickaxe',
+          isAiming: player.aiming,
+          isBuilding: player.buildMode,
+          aimPitch: player.pitch
+        });
+        document.getElementById('animStateDebug').textContent = skeletonAnim.useClipAnimation ? 'EMOTE' : skeletonAnim.state;
+
+        // Caméra Troisième Personne Over-The-Shoulder (Fortnite TPS)
+        const targetFov = player.aiming ? (activeWeapon?.id === 'sniper' ? 32 : 50) : 68;
+        camera.fov += (targetFov - camera.fov) * 0.18;
+        camera.updateProjectionMatrix();
+
+        const camDist = player.aiming ? 2.1 : 3.6;
+        const shoulderOffset = rightVec.clone().multiplyScalar(0.68);
+        const camOffset = new THREE.Vector3(
+          Math.sin(player.yaw) * camDist * Math.cos(player.pitch),
+          1.62 + Math.sin(player.pitch) * camDist,
+          Math.cos(player.yaw) * camDist * Math.cos(player.pitch)
+        );
+        camera.position.copy(player.pos).add(shoulderOffset).add(camOffset);
+        if (camera.position.y < 0.45) camera.position.y = 0.45;
+
+        const lookTarget = player.pos.clone().add(shoulderOffset).add(new THREE.Vector3(0, 1.48 - Math.sin(player.pitch) * 2.5, 0)).addScaledVector(forwardVec, 8);
+        camera.lookAt(lookTarget);
+
+        // Mise à jour prévisualisation construction
+        updateBuildPreview();
+
+        // Mise à jour Tempête
+        GAME.stormTimer = Math.max(0, GAME.stormTimer - dt);
+        if (GAME.stormRadius > GAME.stormTargetRadius) {
+          GAME.stormRadius -= dt * 1.15;
+          stormMesh.scale.set(GAME.stormRadius / GAME.mapRadius, 1, GAME.stormRadius / GAME.mapRadius);
+        }
+        const mins = Math.floor(GAME.stormTimer / 60);
+        const secs = Math.floor(GAME.stormTimer % 60).toString().padStart(2, '0');
+        document.getElementById('stormTimerText').textContent = `0${mins}:${secs}`;
+
+        const inStorm = distFromCenter > GAME.stormRadius;
+        document.getElementById('stormWarningBanner').classList.toggle('hidden', !inStorm);
+        if (inStorm) {
+          player.hp -= dt * 4.5;
+          updateHud();
+          checkEndCondition();
+        }
+
+        // Prompt d'interaction proche (Coffre ou Loot)
+        let promptMsg = '';
+        for (const c of chests) {
+          if (!c.opened && Math.hypot(player.pos.x - c.x, player.pos.z - c.z) < 3.0) {
+            promptMsg = '[E] Ouvrir le Coffre Doré';
+            break;
+          }
+        }
+        if (!promptMsg) {
+          for (const l of groundLoots) {
+            if (Math.hypot(player.pos.x - l.x, player.pos.z - l.z) < 2.6) {
+              promptMsg = `[E] Ramasser ${WEAPON_CATALOG[l.weaponKey].name}`;
+              break;
+            }
+          }
+        }
+        const promptEl = document.getElementById('interactPrompt');
+        promptEl.textContent = promptMsg;
+        promptEl.classList.toggle('hidden', !promptMsg);
+
+        // IA des Bots ennemis
+        bots.forEach((bot) => {
+          if (!bot.alive) return;
+          bot.walkPhase += dt * 7;
+          const distToPlayer = bot.mesh.position.distanceTo(player.pos);
+
+          if (distToPlayer < 48) {
+            // Poursuite & tir vers le joueur
+            const dx = player.pos.x - bot.mesh.position.x;
+            const dz = player.pos.z - bot.mesh.position.z;
+            bot.dir = Math.atan2(dx, dz);
+            if (distToPlayer > 14) {
+              bot.mesh.position.x += Math.sin(bot.dir) * 3.8 * dt;
+              bot.mesh.position.z += Math.cos(bot.dir) * 3.8 * dt;
+            }
+            bot.shootTimer -= dt;
+            if (bot.shootTimer <= 0) {
+              bot.shootTimer = 1.4 + Math.random() * 1.2;
+              const start = bot.mesh.position.clone().add(new THREE.Vector3(0, 1.4, 0));
+              const end = player.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2.2, 1.2, (Math.random() - 0.5) * 2.2));
+              spawnBulletTracer(start, end, 0xff4d4d);
+
+              // Chance de toucher le joueur si non protégé par un mur
+              if (Math.random() < 0.28) {
+                const dmg = 11;
+                if (player.shield > 0) {
+                  player.shield = Math.max(0, player.shield - dmg);
+                } else {
+                  player.hp = Math.max(0, player.hp - dmg);
+                }
+                updateHud();
+                checkEndCondition();
+              }
+            }
+          } else {
+            // Patrouille aléatoire
+            if (Math.random() < 0.015) bot.dir += (Math.random() - 0.5) * 1.8;
+            bot.mesh.position.x += Math.sin(bot.dir) * 2.6 * dt;
+            bot.mesh.position.z += Math.cos(bot.dir) * 2.6 * dt;
+          }
+
+          bot.mesh.rotation.y = bot.dir;
+          bot.mesh.position.y = Math.abs(Math.sin(bot.walkPhase)) * 0.08;
+        });
+
+        // Rotation des loots au sol & nettoyage des traceurs de balles
+        groundLoots.forEach((l) => { l.mesh.rotation.y += dt * 2.2; });
+        for (let i = bullets.length - 1; i >= 0; i--) {
+          bullets[i].life -= dt;
+          if (bullets[i].life <= 0) {
+            scene.remove(bullets[i].line);
+            bullets[i].line.geometry.dispose();
+            bullets.splice(i, 1);
+          }
+        }
+
+        drawMinimap();
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Redimensionnement adaptatif
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Démarrage de la boucle après chargement complet de la fenêtre
+    window.onload = () => {
+      updateHud();
+      animate();
+    };
+  </script>
+</body>
+</html>
